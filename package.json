@@ -1,0 +1,33 @@
+{
+  "name": "affect-kit",
+  "version": "0.1.0",
+  "description": "Turn timestamped affect annotations into a living emotional state — bands, momentum and residual warmth, not a single number.",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "scripts": {
+    "demo": "node examples/demo.mjs",
+    "test": "node test/test.mjs"
+  },
+  "keywords": [
+    "affect",
+    "emotion",
+    "state-machine",
+    "memory",
+    "llm",
+    "persona",
+    "russell-circumplex"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "src",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ]
+}
