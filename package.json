@@ -1,7 +1,7 @@
 {
   "name": "affect-kit",
-  "version": "0.1.0",
-  "description": "Turn timestamped affect annotations into a living emotional state — bands, momentum and residual warmth, not a single number.",
+  "version": "0.2.0",
+  "description": "Turn timestamped affect annotations into a living emotional state — bands, momentum and residual warmth, not a single number. Plus a memory layer that files experiences into a tree so a thousand entries stay reachable.",
   "type": "module",
   "main": "src/index.mjs",
   "exports": {
@@ -9,7 +9,10 @@
   },
   "scripts": {
     "demo": "node examples/demo.mjs",
-    "test": "node test/test.mjs",
+    "test": "node test/test.mjs && node test/tree.test.mjs && node test/perf.test.mjs",
+    "test:affect": "node test/test.mjs",
+    "test:memory": "node test/tree.test.mjs",
+    "test:perf": "node test/perf.test.mjs",
     "check:readme": "node test/readme-check.mjs"
   },
   "keywords": [
@@ -20,6 +23,10 @@
     "emotion-model",
     "state-machine",
     "memory",
+    "retrieval",
+    "semantic-search",
+    "clustering",
+    "hierarchical-index",
     "persona",
     "llm",
     "ai-companion",

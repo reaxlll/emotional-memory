@@ -13,6 +13,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { cos, descend } from "./tree.mjs";
+import { matchAlias } from "./aliases.mjs";
 
 export function openLibrary(file) {
   const entries = [];
@@ -72,7 +74,7 @@ function grams(s) {
   return out;
 }
 
-function index(lib) {
+function buildIndex(lib) {
   const df = new Map();
   const docs = lib.entries.map(e => {
     const body = [e.said, e.did, e.think, e.summary, (e.tags || []).join(" ")].join(" ");
@@ -81,6 +83,17 @@ function index(lib) {
     return { e, g };
   });
   return { df, docs, N: docs.length };
+}
+
+// 索引建一次就够：库里有一千七百多条，每问一句重算一遍词频表是白烧 CPU。
+// 用条数当版本号——append 之后条数变了就重建。
+const _idx = new WeakMap();
+function index(lib) {
+  const c = _idx.get(lib);
+  if (c && c.N === lib.entries.length) return c;
+  const fresh = buildIndex(lib);
+  _idx.set(lib, fresh);
+  return fresh;
 }
 
 /** 关键词召回。about 是主题词，want 是「我要什么形状」——用自然语言再提一次，权重低一点。 */
@@ -96,6 +109,138 @@ export function recall(lib, { about = "", want = "", n = 4 } = {}) {
     return { e, s };
   }).filter(x => x.s > 0).sort((a, b) => b.s - a.s);
   return scored.slice(0, n);
+}
+
+// ── 语义检索：向量 + 树 + 别名，三样都是可选的 ──
+//
+// 纯词频那条路留着（recall 上面那个），因为它没依赖、够快、出问题好查。
+// 下面这条路多三件事：
+//   ① 别名表：他说过一个词，指的不是字面意思，直接跳过去
+//   ② 树：一千多条里先挑两本「书」，再逐层往下翻到二十几条
+//   ③ 语义：向量余弦，配上词频一起打分
+//
+// 三样都可以不给。给多少用多少。
+
+const SEM_FLOOR = 0.35, SEM_SPAN = 0.32;   // 余弦 < 0.35 当 0 分，0.67 当满分
+
+/**
+ * @param {object} lib
+ * @param {object} o
+ * @param {string} o.about           主题词
+ * @param {string} [o.want]          你要什么形状，用自己的话写
+ * @param {number} [o.n]             要几条
+ * @param {(t:string)=>Promise<Float32Array>} [o.embed]  把文本变向量；不给就退化成词频
+ * @param {Map<string,Float32Array>} [o.vectors]         id → 向量
+ * @param {object} [o.tree]          buildTree() 之后 hydrate() 过的树
+ * @param {Array}  [o.aliases]       loadAliases() 的结果
+ * @param {string[]} [o.affectWords] 情绪词表；给了就走情绪通道
+ * @param {number} [o.books]         一次挑几本书，默认 2（1 本会漏）
+ */
+export async function recallSemantic(lib, o = {}) {
+  const { about = "", want = "", n = 4, embed, vectors, tree, aliases = [],
+    affectWords = [], books = 2 } = o;
+  const q = (about + " " + want).trim();
+  const picked = [];
+  const taken = new Set();
+
+  // ① 别名通道：不跟向量算，直接跳
+  if (aliases.length) {
+    for (const h of matchAlias(aliases, q)) {
+      const e = lib.byId[h.id];
+      if (e && !taken.has(h.id)) { picked.push({ e, s: 1.3, why: "别名「" + h.word + "」" }); taken.add(h.id); }
+    }
+  }
+
+  // ② 情绪通道：「什么时候最沉」这种问法，语义只会捞回「讲沉的分析」，捞不回真的沉
+  if (affectWords.length) {
+    const word = pickAffectWord(q, affectWords);
+    if (word) {
+      const list = lib.entries
+        .filter(e => affectOf(e).some(f => f.name === word))
+        .sort((a, b) => Math.min(...affectOf(a).map(f => f.v)) - Math.min(...affectOf(b).map(f => f.v)));
+      for (const e of list) {
+        if (picked.length >= n) break;
+        if (taken.has(e.id)) continue;
+        picked.push({ e, s: 1.2, why: "情绪「" + word + "」" }); taken.add(e.id);
+      }
+    }
+  }
+
+  // 没有向量就退回词频，至少还能用
+  if (!embed || !vectors) {
+    const rest = recall(lib, { about, want, n: n + picked.length });
+    for (const x of rest) {
+      if (picked.length >= n) break;
+      if (taken.has(x.e.id)) continue;
+      picked.push({ e: x.e, s: x.s / 100, why: "" }); taken.add(x.e.id);
+    }
+    return picked.slice(0, n);
+  }
+
+  const qv = await embed(q);
+
+  // ③ 树下钻：先挑书，再一层层往下，落在二十几条里
+  let pool = lib.entries.filter(e => !taken.has(e.id));
+  if (tree && tree.books.length) {
+    const leaves = descend(tree, qv, { books, vectors });
+    const sets = leaves.map(l => l.set).filter(Boolean);
+    if (sets.length) {
+      const narrowed = pool.filter(e => sets.some(s => s.has(e.id)));
+      if (narrowed.length >= n) pool = narrowed;
+    }
+  }
+
+  // ④ 精排：语义 + 词频
+  const { df, docs, N } = index({ entries: pool });
+  const qa = grams(about), qw2 = grams(want);
+  const idf = t => Math.log(1 + N / (1 + (df.get(t) || 0)));
+  const scored = docs.map(({ e, g }) => {
+    const v = vectors.get(e.id);
+    const c = v ? cos(qv, v) : -1;
+    const sem = Math.max(0, Math.min(1, (c - SEM_FLOOR) / SEM_SPAN));
+    let lex = 0;
+    let tot = 0;
+    for (const t of qa) { tot += idf(t); if (g.has(t)) lex += idf(t); }
+    for (const t of qw2) { tot += idf(t) * 0.5; if (g.has(t)) lex += idf(t) * 0.5; }
+    lex = tot > 0 ? lex / tot : 0;
+    return { e, s: 0.7 * sem + 0.3 * lex, why: "" };
+  }).filter(x => x.s > 0.18).sort((a, b) => b.s - a.s);
+
+  for (const x of scored) {
+    if (picked.length >= n) break;
+    if (taken.has(x.e.id)) continue;
+    picked.push(x); taken.add(x.e.id);
+  }
+  return picked.slice(0, n);
+}
+
+/** 情绪名可能叫 affect / Fs，两种都认 */
+export function affectOf(e) {
+  const a = Array.isArray(e.affect) ? e.affect : (Array.isArray(e.Fs) ? e.Fs : []);
+  return a.map(x => ({ name: x.name || x.f, v: Number(x.v) || 0, a: Number(x.a) || 0 })).filter(x => x.name);
+}
+
+const DEGREE = "最很太真超特别有点十分非常尤其更";
+const PUNCT = /[s，。？！、,.?!]/;
+
+/**
+ * 查询里点到某个情绪名就算命中，但单字情绪要防误伤——
+ * 「重启」里的「重」不该把情绪「重」勾出来。前后得有程度词、标点或者边界。
+ */
+export function pickAffectWord(q, words) {
+  const text = String(q || "");
+  for (const w of [...words].filter(Boolean).sort((a, b) => String(b).length - String(a).length)) {
+    let i = 0;
+    while ((i = text.indexOf(w, i)) >= 0) {
+      if (String(w).length >= 2) return w;
+      const prev = text[i - 1] || "", next = text[i + 1] || "";
+      const okPrev = !prev || DEGREE.includes(prev) || PUNCT.test(prev);
+      const okNext = !next || !/[一-龥]/.test(next) || PUNCT.test(next);
+      if (okPrev && okNext) return w;
+      i += String(w).length;
+    }
+  }
+  return null;
 }
 
 /** 一件事在库里有多厚：多少条、跨几天、带多少情绪 */
