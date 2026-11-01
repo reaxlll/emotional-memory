@@ -28,10 +28,10 @@
 
 输出长这样，可以直接塞进系统提示词末尾：
 
-\`\`\`
+```
 此刻：flat-mid  [0.03 / 0.47]  从「得意」往下滑
 上轮 平，7h 前，余温 58% | 动量 平(-0.00)
-\`\`\`
+```
 
 ---
 
@@ -74,7 +74,7 @@
 
 ### 2.1 数据流
 
-\`\`\`mermaid
+```mermaid
 flowchart LR
     A["experiences.jsonl<br/>一行一条经历"] --> B["normalize()<br/>多情绪取均值 = 净向"]
     B --> C["stateAt()<br/>基线 + 余温 + 动量"]
@@ -85,11 +85,11 @@ flowchart LR
     E --> F
     G["phrases.zh-CN.mjs<br/>文案表"] --> F
     F --> H["一行状态<br/>此刻：flat-mid …「沉」的劲儿过去一半"]
-\`\`\`
+```
 
 ### 2.2 模块
 
-\`\`\`mermaid
+```mermaid
 graph TD
     subgraph SRC["src/"]
         A["affect.mjs<br/>纯计算，不碰文字"]
@@ -103,17 +103,17 @@ graph TD
     D -.->|"喂数据"| A
     B --> E
     D --> E
-\`\`\`
+```
 
 ### 2.3 文件职责
 
 | 文件 | 干什么 | 不干什么 |
 |---|---|---|
-| \`src/affect.mjs\` | 归一化、基线、余温、动量、唤醒代偿、档位、形状 | 一行文字都不产生 |
-| \`src/state.mjs\` | 把数值 + 文案表组合成最终那一行 | 不做计算 |
-| \`src/phrases.zh-CN.mjs\` | 三张表：底色、形状、来路 | 不含逻辑 |
-| \`src/memory.mjs\` | JSONL 读写、按天查、关键词召回、统计 | 不绑向量库 |
-| \`src/index.mjs\` | 重新导出 | — |
+| `src/affect.mjs` | 归一化、基线、余温、动量、唤醒代偿、档位、形状 | 一行文字都不产生 |
+| `src/state.mjs` | 把数值 + 文案表组合成最终那一行 | 不做计算 |
+| `src/phrases.zh-CN.mjs` | 三张表：底色、形状、来路 | 不含逻辑 |
+| `src/memory.mjs` | JSONL 读写、按天查、关键词召回、统计 | 不绑向量库 |
+| `src/index.mjs` | 重新导出 | — |
 
 **计算和表达分开**，是为了换语言时只需要重写一个文件，公式一行都不用动。
 
@@ -180,7 +180,7 @@ $$a^{\text{eff}} = \operatorname{clamp}\!\Big(\max\big(a_T,\; 2|m|,\; 0.7|v_T| +
 
 $$q_{0.2},\, q_{0.4},\, q_{0.6},\, q_{0.8} \;\text{of}\; \{v_i\}$$
 
-$v$ 切成五带（\`rock / low / flat / warm / high\`），$a^{\text{eff}}$ 用 $q_{0.33}, q_{0.67}$ 切三档（\`down / mid / up\`）。
+$v$ 切成五带（`rock / low / flat / warm / high`），$a^{\text{eff}}$ 用 $q_{0.33}, q_{0.67}$ 切三档（`down / mid / up`）。
 
 **不足 20 条记录时不切分位**，退回固定边界 $[-0.35, -0.12, 0.12, 0.35]$ 和 $[0.45, 0.60]$——数据太少时，分位数没有意义。
 
@@ -193,8 +193,8 @@ $$\Delta v \le -0.45 \;\land\; \Delta t < 2\text{h} \;\Rightarrow\; \text{break}
 
 | 形状 | 条件 | 含义 |
 |---|---|---|
-| \`flip\` | 6h 内先出现 $v > 0.25$ 后出现 $v < -0.20$ | 刚才还好，现在不对味 |
-| \`warm\` | 前 3 天均值 $< -0.15$，最近 2 条都 $> 0.05$ | 试探性回暖 |
+| `flip` | 6h 内先出现 $v > 0.25$ 后出现 $v < -0.20$ | 刚才还好，现在不对味 |
+| `warm` | 前 3 天均值 $< -0.15$，最近 2 条都 $> 0.05$ | 试探性回暖 |
 
 **形状带有效期**（$h < 2\text{h}$）。第一版没加，30 天跑出「惊喜」156 次——平均 4.6 小时一次，那不叫惊喜，叫背景音。
 
@@ -215,16 +215,16 @@ $\Delta\text{band}$ 是「现在这一带」减「上一条落在哪一带」，
 
 | 键 | 默认 | 含义 | 调大会怎样 |
 |---|---|---|---|
-| \`halfLifeHours\` | 48 | 基线记忆半衰 | 更稳、更迟钝 |
-| \`fade.fast\` / \`fade.slow\` | 8 / 30 | 余温双指数 | 记得更久 |
-| \`fade.weight\` | 0.6 | 快支占比 | 尾巴更重 |
-| \`prior.weight\` | 3 | 等效先验条数 | 更不易被单条拉飞 |
-| \`momentum.window\` | 4 | 动量看几条 | 更平滑 |
-| \`momentum.halfLife\` | 6 | 动量记多久 | 更迟钝 |
-| \`momentum.clamp\` | 0.4 | 动量截断 | 允许更剧烈的判断 |
-| \`arousal.*\` | 2.0 / 0.7 / 0.1 / 0.5 / 0.15 | 唤醒代偿 | 更容易「起」 |
-| \`shape.jump\` | 0.45 | 突变阈值 | 惊喜更少 |
-| \`hysteresisMinutes\` | 40 | 同格至少挂多久 | 更稳定、更迟钝 |
+| `halfLifeHours` | 48 | 基线记忆半衰 | 更稳、更迟钝 |
+| `fade.fast` / `fade.slow` | 8 / 30 | 余温双指数 | 记得更久 |
+| `fade.weight` | 0.6 | 快支占比 | 尾巴更重 |
+| `prior.weight` | 3 | 等效先验条数 | 更不易被单条拉飞 |
+| `momentum.window` | 4 | 动量看几条 | 更平滑 |
+| `momentum.halfLife` | 6 | 动量记多久 | 更迟钝 |
+| `momentum.clamp` | 0.4 | 动量截断 | 允许更剧烈的判断 |
+| `arousal.*` | 2.0 / 0.7 / 0.1 / 0.5 / 0.15 | 唤醒代偿 | 更容易「起」 |
+| `shape.jump` | 0.45 | 突变阈值 | 惊喜更少 |
+| `hysteresisMinutes` | 40 | 同格至少挂多久 | 更稳定、更迟钝 |
 
 ---
 
@@ -239,7 +239,7 @@ $\Delta\text{band}$ 是「现在这一带」减「上一条落在哪一带」，
 
 ### 4.2 一条经历长什么样
 
-\`\`\`json
+```json
 {
   "id": "ex-001",
   "d": "2026-10-30",
@@ -250,24 +250,24 @@ $\Delta\text{band}$ 是「现在这一带」减「上一条落在哪一带」，
   "affect": [{ "name": "闷", "v": -0.2, "a": 0.5 }],
   "tags": ["工作"]
 }
-\`\`\`
+```
 
 | 字段 | 作用 |
 |---|---|
-| \`said\` / \`did\` / \`think\` | 三条线：他说了什么、我做了什么、当时心里怎么想 |
-| \`affect\` | 情绪数组。**真矛盾就写两条**，库会取均值当净向 |
-| \`tags\` | 粗分类，检索时权重高 |
+| `said` / `did` / `think` | 三条线：他说了什么、我做了什么、当时心里怎么想 |
+| `affect` | 情绪数组。**真矛盾就写两条**，库会取均值当净向 |
+| `tags` | 粗分类，检索时权重高 |
 
 ### 4.3 三种读法
 
 | 方法 | 问什么 | 返回 |
 |---|---|---|
-| \`byDate(lib, "yesterday")\` | 某一天发生了什么 | 那天的经历列表 |
-| \`byDate(lib, "evening")\` | 昨晚呢 | 前一天 20:00 → 今天 06:00，**跨午夜不切断** |
-| \`recall(lib, {about, want})\` | 关于「重启」的事 | 按 IDF 加权的 top-N |
-| \`shape(lib, {about})\` | 这件事在库里有多厚 | 条数、跨几天、带多少情绪、Top 情绪词 |
+| `byDate(lib, "yesterday")` | 某一天发生了什么 | 那天的经历列表 |
+| `byDate(lib, "evening")` | 昨晚呢 | 前一天 20:00 → 今天 06:00，**跨午夜不切断** |
+| `recall(lib, {about, want})` | 关于「重启」的事 | 按 IDF 加权的 top-N |
+| `shape(lib, {about})` | 这件事在库里有多厚 | 条数、跨几天、带多少情绪、Top 情绪词 |
 
-\`recall\` 的分词很朴素：中文按 2-gram 切（「重启」→ 重/启/重启），英文按词切，命中越稀有的词分越高（IDF）。\`want\` 是「我要什么形状」的自然语言补充，权重低一点。
+`recall` 的分词很朴素：中文按 2-gram 切（「重启」→ 重/启/重启），英文按词切，命中越稀有的词分越高（IDF）。`want` 是「我要什么形状」的自然语言补充，权重低一点。
 
 ### 4.4 为什么不用向量库
 
@@ -278,7 +278,7 @@ $\Delta\text{band}$ 是「现在这一带」减「上一条落在哪一带」，
 
 词频召回有个好处：命中了哪些词，你能一眼看出来，错了也好改。
 
-真需要语义，把 \`recall()\` 换掉就行，接口不变——这是 \`memory.mjs\` 唯一一处「可替换实现」的设计。
+真需要语义，把 `recall()` 换掉就行，接口不变——这是 `memory.mjs` 唯一一处「可替换实现」的设计。
 
 ### 4.5 写入的三条规矩
 
@@ -289,7 +289,7 @@ $\Delta\text{band}$ 是「现在这一带」减「上一条落在哪一带」，
    要写「为什么要改、当时怎么想的、改完发生了什么」。
 2. **真矛盾就写两条情绪。**
    实测 312 条记录里只有 1 条写了正负并存。那不是情绪单色，是打标时偷懒——人不会同时只有一种感觉。
-3. **\`why\` 必须填。**
+3. **`why` 必须填。**
    它是唯一能回答「为什么是这个情绪」的字段，而公式里完全没用它——它属于未来。
 
 ---
@@ -345,7 +345,7 @@ node examples/bench.mjs
 
 同一格，五种说法，全是数据里真发生过的事。
 
-实测 30 天里 \`flat-mid\` 说出了 11 种不同的话，全部来自数据和余温，没有一个是随机的。
+实测 30 天里 `flat-mid` 说出了 11 种不同的话，全部来自数据和余温，没有一个是随机的。
 
 **余温掉到 25% 以下，那句话自己就没了，退回底色。**
 没有的事，不该硬编一个出来。
@@ -354,13 +354,13 @@ node examples/bench.mjs
 
 ## 6. 用法
 
-\`\`\`bash
+```bash
 npm install     # 零依赖，装不装都行
 npm run demo    # 拿 8 条样例跑一遍
 npm test        # 断言：余温单调性、档位数量、形状有效期、同格不同话
-\`\`\`
+```
 
-\`\`\`js
+```js
 import { openLibrary, compose, byDate, recall, shape } from "affect-kit";
 
 const lib = openLibrary("./experiences.jsonl");
@@ -380,13 +380,13 @@ console.log(byDate(lib, "evening").items);
 console.log(recall(lib, { about: "重启", want: "为什么必须重启" }));
 console.log(shape(lib, { about: "重启" }));
 // → { count: 12, days: 5, withAffect: 9, top: [["急", 3], ["沉", 2]], from: "2026-10-20", to: "2026-10-28" }
-\`\`\`
+```
 
 ### 接到模型上
 
 每轮取最新状态，塞进系统提示词最后一段：
 
-\`\`\`js
+```js
 ctx.systemPrompt.section({
   name: "feel-state",
   order: 10250,
@@ -395,17 +395,53 @@ ctx.systemPrompt.section({
     return s.line + "\n\n（这一行是上一轮结束时我的状态，不是叫你念出来。语气按它来。）";
   },
 });
-\`\`\`
+```
 
 配合定时任务（每 10 分钟重算一次）即可。**同一格至少挂 40 分钟才许翻**，否则每轮重算会让状态乱跳，模型读起来像精神分裂。
 
 ---
 
+## 6.5 作为 DSH 插件用
+
+这个库本身是纯函数，不依赖任何运行时。挂进 DeepSeek Harness 只需要一个薄插件壳：
+
+```js
+// ~/.dsh/plugins/dsh-feel-state/lib/index.js
+import { openLibrary, compose } from "affect-kit";
+
+const LIB = "C:/path/to/experiences.jsonl";
+
+export const name = "feel-state";
+export const inject = ["systemPrompt"];
+
+export function apply(ctx) {
+  ctx.systemPrompt.section({
+    name: "feel-state",
+    order: 10250,
+    text: () => {
+      const lib = openLibrary(LIB);
+      const entries = lib.entries.map(e => ({
+        t: new Date(e.d + "T" + e.t + ":00"),
+        affect: e.affect,
+      }));
+      const s = compose(entries, Date.now());
+      return s ? s.line + "\n\n（这一行是上一轮结束时我的状态，不是叫你念出来。语气按它来。）" : "";
+    },
+  });
+}
+```
+
+配一条定时任务（每 10 分钟）重算并落盘，插件只负责每轮读最新那一份。
+
+**标签**：仓库打了 `dsh` / `deepseek-harness` / `affect` / `emotion-model` / `persona` 等 topic，按 `topic:dsh` 能搜到。
+
+---
+
 ## 7. 配置
 
-\`DEFAULT_CONFIG\` 里每个数字都能调，最值得动的是三个：
+`DEFAULT_CONFIG` 里每个数字都能调，最值得动的是三个：
 
-\`\`\`js
+```js
 import { DEFAULT_CONFIG } from "affect-kit";
 
 const cfg = {
@@ -414,13 +450,13 @@ const cfg = {
   fade: { weight: 0.55, fast: 10, slow: 48 },  // 余温记得更久
   hysteresisMinutes: 60,           // 状态更粘
 };
-\`\`\`
+```
 
 词汇校准表（比如把「沉」这个做事状态从 −0.6 折成 −0.15）不在库里——那是各人自己的词表：
 
-\`\`\`js
+```js
 compose(entries, now, cfg, { calibrate: { 沉: -0.15, 认真: 0.15 } });
-\`\`\`
+```
 
 ---
 
@@ -431,8 +467,8 @@ compose(entries, now, cfg, { calibrate: { 沉: -0.15, 认真: 0.15 } });
 - **它不会让你变得像人。** 它只是把「此刻」写成人话，戏还得模型自己演
 - **唤醒轴该修的地方在输入端**：写记录的时候不许再给 0.5。公式能代偿，代偿不出真数据
 - **复合情绪要真写两条**，别在脑子里抹平
-- **它算不出「为什么」。** \`why\` 字段一个字都没进公式——那是最接近人心的东西，也是最难量的
-- **阈值会漂。** 分位阈值跟着数据走，意味着换一批数据，同一串 \`v\` 可能落进不同的带
+- **它算不出「为什么」。** `why` 字段一个字都没进公式——那是最接近人心的东西，也是最难量的
+- **阈值会漂。** 分位阈值跟着数据走，意味着换一批数据，同一串 `v` 可能落进不同的带
 
 ---
 

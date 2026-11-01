@@ -13,12 +13,16 @@
     "check:readme": "node test/readme-check.mjs"
   },
   "keywords": [
+    "dsh",
+    "deepseek-harness",
     "affect",
     "emotion",
+    "emotion-model",
     "state-machine",
     "memory",
-    "llm",
     "persona",
+    "llm",
+    "ai-companion",
     "russell-circumplex"
   ],
   "license": "MIT",
@@ -30,5 +34,13 @@
     "examples",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/reaxlll/affect-kit.git"
+  },
+  "homepage": "https://github.com/reaxlll/affect-kit#readme",
+  "bugs": {
+    "url": "https://github.com/reaxlll/affect-kit/issues"
+  }
 }
