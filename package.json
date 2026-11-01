@@ -1,11 +1,13 @@
 {
-  "name": "affect-kit",
-  "version": "0.2.0",
-  "description": "Turn timestamped affect annotations into a living emotional state — bands, momentum and residual warmth, not a single number. Plus a memory layer that files experiences into a tree so a thousand entries stay reachable.",
+  "name": "emotional-memory",
+  "version": "0.1.0",
+  "description": "情感状态与记忆检索：把带时间戳的情绪注解算成可用的状态，把上千条经历组织成能翻的树。零依赖。",
   "type": "module",
   "main": "src/index.mjs",
   "exports": {
-    ".": "./src/index.mjs"
+    ".": "./src/index.mjs",
+    "./tree": "./src/tree.mjs",
+    "./aliases": "./src/aliases.mjs"
   },
   "scripts": {
     "demo": "node examples/demo.mjs",
@@ -16,8 +18,6 @@
     "check:readme": "node test/readme-check.mjs"
   },
   "keywords": [
-    "dsh",
-    "deepseek-harness",
     "affect",
     "emotion",
     "emotion-model",
@@ -44,10 +44,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/reaxlll/affect-kit.git"
+    "url": "git+https://github.com/reaxlll/emotional-memory.git"
   },
-  "homepage": "https://github.com/reaxlll/affect-kit#readme",
+  "homepage": "https://github.com/reaxlll/emotional-memory#readme",
   "bugs": {
-    "url": "https://github.com/reaxlll/affect-kit/issues"
+    "url": "https://github.com/reaxlll/emotional-memory/issues"
   }
 }
