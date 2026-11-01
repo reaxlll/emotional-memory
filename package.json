@@ -9,7 +9,8 @@
   },
   "scripts": {
     "demo": "node examples/demo.mjs",
-    "test": "node test/test.mjs"
+    "test": "node test/test.mjs",
+    "check:readme": "node test/readme-check.mjs"
   },
   "keywords": [
     "affect",

@@ -22,8 +22,8 @@ function fromBand(entries, now) {
   return { v: prev.v, name: prev.names[0] || "?" };
 }
 
-export function compose(entries, now = Date.now(), cfg = DEFAULT_CONFIG) {
-  const norm = normalize(entries);
+export function compose(entries, now = Date.now(), cfg = DEFAULT_CONFIG, opts = {}) {
+  const norm = normalize(entries, opts);   // opts.calibrate: { 沉: -0.15, 认真: 0.15 }
   const s = stateAt(norm, now, cfg);
   if (!s) return null;
 
