@@ -433,7 +433,7 @@ export function apply(ctx) {
 
 配一条定时任务（每 10 分钟）重算并落盘，插件只负责每轮读最新那一份。
 
-**标签**：仓库打了 `dsh` / `deepseek-harness` / `affect` / `emotion-model` / `persona` 等 topic，按 `topic:dsh` 能搜到。
+**标签**：仓库打了 `dsh-plugin` / `dsh` / `deepseek-harness` / `affect` / `emotion-model` / `persona` 等 topic。`dsh-plugin` 是 DSH 插件市场的收录标签，按 [topic:dsh-plugin](https://github.com/topics/dsh-plugin) 能搜到。
 
 ---
 
